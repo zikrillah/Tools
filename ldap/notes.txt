@@ -1,0 +1,3 @@
+ldapsearch -x -h 10.10.xx.xx -D "cn=admin,dc=zitechlab,dc=my,dc=id" -w admin_pass -b 'cn=zikri,dc=zitechlab,dc=my,dc=id' '(objectclass=*)'
+
+(sAMAccountName=%{session.logon.last.username})
