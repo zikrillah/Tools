@@ -1,0 +1,40 @@
+when HTTP_REQUEST {
+
+    set token [string range [HTTP::header value "Authorization"] 7 end]
+    set url [HTTP::uri]
+    set method [HTTP::method]
+    #set host [string tolower [HTTP::host]]
+
+    log local0. "HTTP Method = [HTTP::method]"
+    log local0. "HTTP URI = [HTTP::uri]"
+    #log local0. "HTTP Host Header = [HTTP::host]"
+    log local0. "Token = $token"
+
+    # Sideband HTTP Request to API
+    set conn [connect -protocol TCP -timeout 3000 -idle 10 -status conn_status 20.xx.1xx.xx:8080]
+    log local0. "Connect returns: <$conn> and conn status: <$conn_status>"
+
+    if {$conn_status equals "connected"} {
+        set json_data "{\r\n \"method\": \"$method\",\r\n \"url\": \"$url\",\r\n \"token\": \"$token\"}"
+        set cnt_length [string length $json_data]
+        set data "POST http://20.xx.1xx.xx:8080/v1/authentication_service/token/check_token HTTP/1.1\r\nHost: 20.xx.1xx.xx:8080\r\nContent-Type: application/json\r\nContent-Length: $cnt_length\r\n\r\n$json_data"
+
+        set send_info [send -timeout 50 -status send_status $conn $data]
+        log local0. "Sent <$send_info> bytes and send status: <$send_status>"
+
+        set recv_data [recv -timeout 50 -status recv_status $conn]
+        log local0. "Recv status: <$recv_status>"
+        log local0. "Recv data: <$recv_data>"
+        close $conn
+        log local0. "Closed; conn info: <[connect info -status $conn]>"
+
+        if { $recv_data contains "token-false" } {
+            log local0. "Request REJECTED 403"
+            HTTP::respond 403 content "{\r\n \"error\": \"unauthorized\"\r\n}"
+        }
+        else {
+            log local0. "Request ALLOWED"
+        }
+    }
+    virtual vs-name
+}
